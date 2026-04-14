@@ -3,7 +3,13 @@ import { Event, Artist } from '@/types'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// ビルド時ではなく実際に使うときにインスタンス化（環境変数未設定でもビルドが通る）
+function getResend() {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'your_resend_api_key') {
+    throw new Error('RESEND_API_KEY が設定されていません')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 type NotifyParams = {
   email: string
@@ -63,6 +69,7 @@ export async function sendNewEventNotification({ email, newEvents }: NotifyParam
     </html>
   `
 
+  const resend = getResend()
   const { data, error } = await resend.emails.send({
     from: fromEmail,
     to: email,

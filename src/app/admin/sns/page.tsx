@@ -10,11 +10,12 @@ const XTimeline = dynamic(() => import('@/components/XTimeline'), { ssr: false }
 
 // ダースレイダー関連のSNS・情報源一覧
 const SNS_LINKS = [
-  { label: 'X @DarthReider（個人）', url: 'https://x.com/DarthReider', icon: '𝕏' },
-  { label: 'X @darthbassons（バンド）', url: 'https://x.com/darthbassons', icon: '𝕏' },
-  { label: 'HOT GATE（公式サイト・ライブ情報）', url: 'https://hotgate.link/gigs', icon: '🌐' },
-  { label: 'YouTube', url: 'https://www.youtube.com/playlist?list=PL8Z_C6iqHSOVuqFdcMaMwC7OhPelMjM4k', icon: '▶' },
-  { label: 'Tunecore（DARTHREIDER）', url: 'https://www.tunecore.co.jp/artists/darthreider', icon: '🎵' },
+  { label: 'X @DarthReider（個人）', url: 'https://x.com/DarthReider', icon: '𝕏', color: 'hover:bg-gray-900 hover:text-white' },
+  { label: 'X @darthbassons（バンド）', url: 'https://x.com/darthbassons', icon: '𝕏', color: 'hover:bg-gray-900 hover:text-white' },
+  { label: 'Instagram @darthreider', url: 'https://www.instagram.com/darthreider/', icon: '📷', color: 'hover:bg-pink-500 hover:text-white' },
+  { label: 'HOT GATE（公式サイト・ライブ情報）', url: 'https://hotgate.link/gigs', icon: '🌐', color: 'hover:bg-indigo-50 hover:text-indigo-700' },
+  { label: 'YouTube', url: 'https://www.youtube.com/playlist?list=PL8Z_C6iqHSOVuqFdcMaMwC7OhPelMjM4k', icon: '▶', color: 'hover:bg-red-50 hover:text-red-600' },
+  { label: 'Tunecore（DARTHREIDER）', url: 'https://www.tunecore.co.jp/artists/darthreider', icon: '🎵', color: 'hover:bg-indigo-50 hover:text-indigo-700' },
 ]
 
 // チケット状況の選択肢
@@ -142,7 +143,7 @@ export default function SnsCheckPage() {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 transition-colors ${link.color}`}
               >
                 <span>{link.icon}</span>
                 {link.label}
@@ -151,28 +152,37 @@ export default function SnsCheckPage() {
           </div>
         </section>
 
-        {/* レイアウト：左=Xタイムライン、右=手動登録フォーム */}
+        {/* レイアウト：左=SNSタイムライン、右=手動登録フォーム */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 左：Xタイムライン */}
+          {/* 左：SNSタイムライン */}
           <section className="space-y-3">
-            {/* アカウント切り替えタブ */}
-            <div className="flex gap-2">
+            {/* タブ：XとInstagram */}
+            <div className="flex flex-wrap gap-2">
               {X_ACCOUNTS.map(account => (
                 <button
                   key={account.username}
                   onClick={() => setActiveTab(account.username)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === account.username
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                   }`}
                 >
-                  {account.label}
+                  𝕏 {account.label}
                 </button>
               ))}
+              {/* Instagramは埋め込み不可のため外部リンクボタン */}
+              <a
+                href="https://www.instagram.com/darthreider/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-gray-600 border border-gray-200 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200"
+              >
+                📷 Instagram
+              </a>
             </div>
 
-            {/* タイムライン本体 */}
+            {/* Xタイムライン本体 */}
             {X_ACCOUNTS.map(account => (
               <div
                 key={account.username}
@@ -186,9 +196,24 @@ export default function SnsCheckPage() {
               </div>
             ))}
 
+            {/* Instagram補足（Instagramはiframe埋め込みが公式非対応のため外部リンクのみ） */}
+            <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl border border-pink-100 p-4 text-center space-y-2">
+              <p className="text-sm font-medium text-gray-700">📷 Instagram @darthreider</p>
+              <p className="text-xs text-gray-500">フォロワー1.3万 · 投稿1.3万件</p>
+              <a
+                href="https://www.instagram.com/darthreider/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-1 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                style={{ background: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)' }}
+              >
+                Instagramを開く →
+              </a>
+            </div>
+
             {/* 補足テキスト */}
             <p className="text-xs text-gray-400 text-center">
-              ライブ告知ツイートを見つけたら、右の「手動登録」フォームに入力してください
+              告知を見つけたら、右の「手動登録」フォームに入力してください
             </p>
           </section>
 

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "delete-old-events": "npx tsx scripts/delete-old-events.ts",
-    "delete-old-events:execute": "npx tsx scripts/delete-old-events.ts --execute"
+    "delete-old-events:execute": "npx tsx scripts/delete-old-events.ts --execute",
+    "force-clear-all": "npx tsx scripts/force-clear-all.ts",
+    "force-clear-all:execute": "npx tsx scripts/force-clear-all.ts --execute"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

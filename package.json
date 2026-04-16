@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "delete-old-events": "npx tsx scripts/delete-old-events.ts",
+    "delete-old-events:execute": "npx tsx scripts/delete-old-events.ts --execute"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

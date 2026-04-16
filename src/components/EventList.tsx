@@ -1,6 +1,6 @@
 'use client'
 
-import { format, isSameDay } from 'date-fns'
+import { format, isSameDay, parse } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Event } from '@/types'
 import EventCard from './EventCard'
@@ -14,7 +14,7 @@ type Props = {
 export default function EventList({ events, selectedDate }: Props) {
   // 選択した日付があればその日のイベントだけ表示、なければすべて表示
   const filteredEvents = selectedDate
-    ? events.filter((e) => isSameDay(new Date(e.date), selectedDate))
+    ? events.filter((e) => isSameDay(parse(e.date, 'yyyy-MM-dd', new Date()), selectedDate))
     : events
 
   // 日付順にグループ化
@@ -47,7 +47,7 @@ export default function EventList({ events, selectedDate }: Props) {
         <div key={dateKey}>
           {/* 日付ヘッダー */}
           <h3 className="text-sm font-bold text-gray-500 mb-2 px-1">
-            {format(new Date(dateKey), 'M月d日（E）', { locale: ja })}
+            {format(parse(dateKey, 'yyyy-MM-dd', new Date()), 'M月d日（E）', { locale: ja })}
           </h3>
           <div className="space-y-3">
             {grouped[dateKey].map((event) => (

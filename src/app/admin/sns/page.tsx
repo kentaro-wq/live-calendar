@@ -13,6 +13,7 @@ const SNS_LINKS = [
   { label: 'X @DarthReider（個人）', url: 'https://x.com/DarthReider', icon: '𝕏', color: 'hover:bg-gray-900 hover:text-white' },
   { label: 'X @darthbassons（バンド）', url: 'https://x.com/darthbassons', icon: '𝕏', color: 'hover:bg-gray-900 hover:text-white' },
   { label: 'Instagram @darthreider', url: 'https://www.instagram.com/darthreider/', icon: '📷', color: 'hover:bg-pink-500 hover:text-white' },
+  { label: 'Threads @darthreider', url: 'https://www.threads.com/@darthreider', icon: '🧵', color: 'hover:bg-gray-900 hover:text-white' },
   { label: 'HOT GATE（公式サイト・ライブ情報）', url: 'https://hotgate.link/gigs', icon: '🌐', color: 'hover:bg-indigo-50 hover:text-indigo-700' },
   { label: 'YouTube', url: 'https://www.youtube.com/playlist?list=PL8Z_C6iqHSOVuqFdcMaMwC7OhPelMjM4k', icon: '▶', color: 'hover:bg-red-50 hover:text-red-600' },
   { label: 'Tunecore（DARTHREIDER）', url: 'https://www.tunecore.co.jp/artists/darthreider', icon: '🎵', color: 'hover:bg-indigo-50 hover:text-indigo-700' },
@@ -50,6 +51,7 @@ export default function SnsCheckPage() {
     source_type: 'x_twitter',
   })
   const [submitting, setSubmitting] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,6 +107,16 @@ export default function SnsCheckPage() {
     }
   }
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/admin/session', { method: 'DELETE' })
+      window.location.href = '/admin/login'
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -129,6 +141,13 @@ export default function SnsCheckPage() {
           >
             カレンダーを見る →
           </Link>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+          >
+            {loggingOut ? 'ログアウト中...' : 'ログアウト'}
+          </button>
         </div>
       </header>
 

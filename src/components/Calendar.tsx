@@ -13,6 +13,7 @@ import {
   isSameMonth,
   isSameDay,
   isToday,
+  parse,
 } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Event } from '@/types'
@@ -32,7 +33,7 @@ export default function Calendar({ events, onDateSelect, selectedDate }: Props) 
 
   // 指定した日付にイベントがあるかチェック
   const hasEvent = (date: Date) =>
-    events.some((event) => isSameDay(new Date(event.date), date))
+    events.some((event) => isSameDay(parse(event.date, 'yyyy-MM-dd', new Date()), date))
 
   // カレンダーのセルを生成（前後月の日付を含む6週分）
   const renderCells = () => {

@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import {
+  ADMIN_SESSION_COOKIE,
+  getAdminSecretFromRequest,
+  getCookieFromHeader,
+  isValidAdminSecret,
+  verifyAdminSessionToken,
+} from '@/lib/admin-auth'
+
+async function hasAdminAccess(request: Request) {
+  const headerSecret = getAdminSecretFromRequest(request)
+  if (isValidAdminSecret(headerSecret)) return true
+
+  const cookieHeader = request.headers.get('cookie')
+  const session = getCookieFromHeader(cookieHeader, ADMIN_SESSION_COOKIE)
+  return verifyAdminSessionToken(session)
+}
 
 // GET /api/events - イベント一覧を取得
 export async function GET(request: Request) {
@@ -38,6 +54,12 @@ export async function GET(request: Request) {
         .toISOString()
         .split('T')[0]
       query = query.gte('date', startDate).lte('date', endDate)
+    } else {
+      // 月指定がない場合は from パラメータ（デフォルト：今日）以降のイベントを取得
+      const from = searchParams.get('from')
+      if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+        query = query.gte('date', from)
+      }
     }
 
     const { data: events, error } = await query
@@ -69,6 +91,10 @@ export async function GET(request: Request) {
 // POST /api/events - イベントを手動登録（SNS告知チェック画面から使用）
 export async function POST(request: Request) {
   try {
+    if (!(await hasAdminAccess(request))) {
+      return NextResponse.json({ error: '管理者認証が必要です' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { artist_id, title, venue, date, time, ticket_status, source_url, source_type } = body
 
@@ -129,6 +155,10 @@ export async function POST(request: Request) {
 // DELETE /api/events?id=xxx - イベントを削除
 export async function DELETE(request: Request) {
   try {
+    if (!(await hasAdminAccess(request))) {
+      return NextResponse.json({ error: '管理者認証が必要です' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

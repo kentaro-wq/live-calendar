@@ -13,6 +13,7 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [artists, setArtists] = useState<Artist[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Supabaseからイベントとアーティストを取得
@@ -21,7 +22,9 @@ export default function Home() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/events')
+        // ブラウザのローカル日付（YYYY-MM-DD）を取得して今日以降のイベントのみ取得
+        const todayStr = new Date().toLocaleDateString('sv-SE')
+        const res = await fetch(`/api/events?from=${todayStr}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'データの取得に失敗しました')
         setEvents(data.events)
@@ -33,6 +36,21 @@ export default function Home() {
       }
     }
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    const checkAdminSession = async () => {
+      try {
+        const res = await fetch('/api/admin/session')
+        if (!res.ok) return
+        const data = await res.json()
+        setIsAdmin(Boolean(data.authenticated))
+      } catch {
+        // セッション確認に失敗した場合は非表示のまま
+      }
+    }
+
+    checkAdminSession()
   }, [])
 
   // アーティスト絞り込みでイベントをフィルタ
@@ -58,12 +76,14 @@ export default function Home() {
             <p className="text-xs text-gray-400">アーティストのイベント情報を自動収集</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href="/admin/sns"
-              className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              SNS確認
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin/sns"
+                className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                SNS確認
+              </Link>
+            )}
             <Link
               href="/notifications"
               className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"

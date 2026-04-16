@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { scrapeHotGate, scrapeWWW, ScrapedEvent } from '@/lib/scraper'
+import { scrapeBlocBarIsshee, scrapeHotGate, scrapeWWW, ScrapedEvent } from '@/lib/scraper'
 import { sendNewEventNotification } from '@/lib/mailer'
 import { Artist } from '@/types'
 
@@ -50,6 +50,10 @@ export async function GET(request: Request) {
         // ② 渋谷WWW（出演が判明した場合のみ追加）
         const wwwEvents = await scrapeWWW([artist.name, 'Darthreider', 'DARTHREIDER', 'The Bassons'])
         scrapedEvents.push(...wwwEvents)
+
+        // ③ bloc: Bar Isshee（出演キーワードに一致するもののみ）
+        const blocEvents = await scrapeBlocBarIsshee([artist.name, 'Darthreider', 'DARTHREIDER', 'The Bassons'])
+        scrapedEvents.push(...blocEvents)
       } else {
         // 他のアーティストはWWWをキーワード検索
         const wwwEvents = await scrapeWWW([artist.name])
@@ -97,6 +101,13 @@ async function upsertEvent(
   artist: Artist,
   scraped: ScrapedEvent
 ): Promise<any | null> {
+  // ガードレール：今日より前の日付は保存しない（スクレイパー側のバグに対する最終防衛線）
+  const todayStr = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD (JST相当)
+  if (scraped.date < todayStr) {
+    console.warn(`過去日付のためスキップ: ${scraped.date} ${scraped.venue} (${artist.name})`)
+    return null
+  }
+
   try {
     const now = new Date().toISOString()
 

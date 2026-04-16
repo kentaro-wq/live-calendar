@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import { Event, Artist } from '@/types'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import { createUnsubscribeToken } from '@/lib/unsubscribe-token'
 
 // ビルド時ではなく実際に使うときにインスタンス化（環境変数未設定でもビルドが通る）
 function getResend() {
@@ -22,6 +23,7 @@ export async function sendNewEventNotification({ email, newEvents }: NotifyParam
 
   const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@example.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const unsubscribeToken = createUnsubscribeToken(email)
 
   // メール本文のHTMLを生成
   const eventsHtml = newEvents
@@ -61,7 +63,7 @@ export async function sendNewEventNotification({ email, newEvents }: NotifyParam
       </div>
 
       <p style="font-size: 12px; color: #9ca3af; margin-top: 24px;">
-        <a href="${appUrl}/notifications/unsubscribe?email=${encodeURIComponent(email)}" style="color: #9ca3af;">
+        <a href="${appUrl}/notifications/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}" style="color: #9ca3af;">
           通知を解除する
         </a>
       </p>

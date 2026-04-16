@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Event, TicketStatus } from '@/types'
 
@@ -37,7 +37,7 @@ function getSourceLabel(type: string | null): string {
 
 // イベントカードコンポーネント
 export default function EventCard({ event }: Props) {
-  const eventDate = new Date(event.date)
+  const eventDate = parse(event.date, 'yyyy-MM-dd', new Date())
   const updatedAt = new Date(event.updated_at)
 
   return (

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { verifyUnsubscribeToken } from '@/lib/unsubscribe-token'
 
 // POST /api/subscriptions - メール通知購読を登録
 export async function POST(request: Request) {
@@ -60,15 +61,16 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE /api/subscriptions?email=xxx - 購読解除
+// DELETE /api/subscriptions?token=xxx - 購読解除
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const email = searchParams.get('email')
+    const token = searchParams.get('token')
+    const payload = verifyUnsubscribeToken(token)
 
-    if (!email) {
+    if (!payload) {
       return NextResponse.json(
-        { error: 'メールアドレスが指定されていません' },
+        { error: '無効な解除リンクです' },
         { status: 400 }
       )
     }
@@ -78,7 +80,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabase
       .from('subscriptions')
       .update({ is_active: false })
-      .eq('email', email)
+      .eq('email', payload.email)
 
     if (error) {
       return NextResponse.json(

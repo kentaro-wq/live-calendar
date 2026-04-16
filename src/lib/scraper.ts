@@ -40,7 +40,11 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
     const todayStr = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD
 
     // Tumblrのpostブロックを取得
-    $('.post').each((_, el) => {
+    // ★ 先頭 MAX_POSTS 件のみ処理（Tumblrは新着順 → 古い記事を読み込まない）
+    const MAX_POSTS = 15
+    const allPosts = $('.post').toArray().slice(0, MAX_POSTS)
+
+    for (const el of allPosts) {
       try {
         const $el = $(el)
 
@@ -59,7 +63,7 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
         })()
 
         // タイムスタンプで1年超と判定された場合はスキップ
-        if (tsAttr && postYear === null) return
+        if (tsAttr && postYear === null) continue
 
         $el.find('script, style').remove()
 
@@ -85,7 +89,7 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
         const dateLineIdx = lines.findIndex(l =>
           /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(l) || /^\d{1,2}\/\d{1,2}$/.test(l)
         )
-        if (dateLineIdx < 0) return
+        if (dateLineIdx < 0) continue
 
         const dateLine = lines[dateLineIdx]
         let resolvedDate: string | null = null
@@ -94,26 +98,26 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
           // YYYY/M/D 形式：年が明示されているのでそのまま使う
           const [y, m, d] = dateLine.split('/').map(Number)
           const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-          if (candidate < todayStr) return // 今日より前はスキップ
+          if (candidate < todayStr) continue // 今日より前はスキップ
           resolvedDate = candidate
         } else {
           // M/D 形式：記事公開年を優先して年を決定する
           const [month, day] = dateLine.split('/').map(Number)
           if (postYear !== null) {
-            // Tumblrの公開年と翌年を候補に、今日以降の最近い日付を選ぶ
+            // Tumblrの公開年と翌年を候補に、今日以降の最も近い日付を選ぶ
             resolvedDate = resolveYearFrom(month, day, [postYear, postYear + 1], todayStr)
           } else {
             // タイムスタンプがない場合は従来ロジック（今年・来年の今日以降）
             resolvedDate = resolveYear(month, day)
           }
-          if (!resolvedDate) return
+          if (!resolvedDate) continue
         }
 
         // タイトル・会場を抽出
         // 日付行の次の行が「タイトルat 会場」または「タイトル」単独になっている
         const FOOTER_KEYWORDS = ['ベーソンズライブ日程', 'ベーソンズライブ情報', 'Open in app', 'Facebook', 'Tweet']
         const titleLine = lines[dateLineIdx + 1] || ''
-        if (!titleLine || FOOTER_KEYWORDS.some(kw => titleLine.includes(kw))) return
+        if (!titleLine || FOOTER_KEYWORDS.some(kw => titleLine.includes(kw))) continue
 
         let title = titleLine
         let venue = '会場未定'
@@ -166,9 +170,9 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
       } catch (e) {
         console.error('HOT GATEイベントパースエラー:', e)
       }
-    })
+    }
 
-    console.log(`HOT GATE: ${events.length}件取得`)
+    console.log(`HOT GATE: ${events.length}件取得（先頭${MAX_POSTS}件の記事を処理）`)
   } catch (e) {
     console.error('HOT GATEスクレイプエラー:', e)
   }

@@ -52,18 +52,19 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
         // Tumblrは <article data-timestamp="UNIX秒"> を付与する。
         // 1年以上前の記事はスキップ（古い記事の日付を誤って現在年に解決しないため）
         const tsAttr = $el.attr('data-timestamp')
-        const postYear = (() => {
+        const { postYear, postDateObj } = (() => {
           if (tsAttr && /^\d+$/.test(tsAttr)) {
-            const postDate = new Date(parseInt(tsAttr) * 1000)
-            const ageMs = Date.now() - postDate.getTime()
-            if (ageMs > 365 * 24 * 60 * 60 * 1000) return null // 1年超の記事は除外
-            return postDate.getFullYear()
+            const pd = new Date(parseInt(tsAttr) * 1000)
+            const ageMs = Date.now() - pd.getTime()
+            if (ageMs > 365 * 24 * 60 * 60 * 1000) return { postYear: null, postDateObj: null } // 1年超の記事は除外
+            return { postYear: pd.getFullYear(), postDateObj: pd }
           }
-          return null // タイムスタンプなし：年不明
+          return { postYear: null, postDateObj: null } // タイムスタンプなし：年不明
         })()
 
         // タイムスタンプで1年超と判定された場合はスキップ
         if (tsAttr && postYear === null) continue
+
 
         $el.find('script, style').remove()
 
@@ -103,9 +104,9 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
         } else {
           // M/D 形式：記事公開年を優先して年を決定する
           const [month, day] = dateLine.split('/').map(Number)
-          if (postYear !== null) {
-            // Tumblrの公開年と翌年を候補に、今日以降の最も近い日付を選ぶ
-            resolvedDate = resolveYearFrom(month, day, [postYear, postYear + 1], todayStr)
+          if (postYear !== null && postDateObj !== null) {
+            // 記事公開日を使って年を確定する（単純に翌年へ繰り上げると過去イベントが混入する）
+            resolvedDate = resolveYearFrom(month, day, postDateObj, todayStr)
           } else {
             // タイムスタンプがない場合は従来ロジック（今年・来年の今日以降）
             resolvedDate = resolveYear(month, day)
@@ -284,16 +285,16 @@ export async function scrapeWWW(artistKeywords: string[]): Promise<ScrapedEvent[
 // 特定アーティストに一致するイベントのみ抽出する
 // ============================================================
 export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<ScrapedEvent[]> {
-  const SOURCE_URL = 'http://www.bloc.jp/barisshee/'
+  const MAIN_URL = 'http://www.bloc.jp/barisshee/'
   const events: ScrapedEvent[] = []
 
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+  }
+
   try {
-    const res = await fetch(SOURCE_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
-      },
-    })
+    const res = await fetch(MAIN_URL, { headers })
 
     if (!res.ok) {
       console.error(`blocアクセスエラー: ${res.status}`)
@@ -303,17 +304,25 @@ export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<Scr
     const html = await res.text()
     const $ = cheerio.load(html)
     const keywordLower = artistKeywords.map((kw) => kw.toLowerCase())
+    const todayStr = new Date().toLocaleDateString('sv-SE')
 
+    // ── アプローチ①: テーブル行をパース（旧形式対応・より柔軟に） ────────────
     $('tr').each((_, row) => {
       try {
         const cells = $(row).find('td')
-        if (cells.length < 4) return
+        if (cells.length < 2) return
 
-        const typeText = cells.eq(0).text().trim()
-        if (!typeText.includes('ライブ')) return
+        // 「ライブ」または「LIVE」を含む行のみ処理（先頭セルまたは行全体）
+        const firstCellText = cells.eq(0).text().trim().toLowerCase()
+        const rowText = $(row).text()
+        if (!firstCellText.includes('ライブ') && !firstCellText.includes('live')) return
 
-        const dateText = cells.eq(1).text().trim()
-        const dateMatch = dateText.match(/(\d{1,2})\/(\d{1,2})/)
+        // 日付を任意のセルから探す（M/D 形式）
+        let dateMatch: RegExpMatchArray | null = null
+        for (let i = 0; i < Math.min(cells.length, 3); i++) {
+          dateMatch = cells.eq(i).text().trim().match(/(\d{1,2})\/(\d{1,2})/)
+          if (dateMatch) break
+        }
         if (!dateMatch) return
 
         const month = Number(dateMatch[1])
@@ -321,28 +330,32 @@ export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<Scr
         const date = resolveYear(month, day)
         if (!date) return
 
-        const title = normalizeSpaces(cells.eq(2).text()) || 'Bar Isshee ライブ'
-        const detailText = normalizeSpaces(cells.eq(3).text())
-        const searchableText = `${title} ${detailText}`.toLowerCase()
-
-        const matched = keywordLower.some((kw) => searchableText.includes(kw))
+        // 行全体のテキストでキーワードマッチ
+        const rowTextLower = normalizeSpaces(rowText).toLowerCase()
+        const matched = keywordLower.some((kw) => rowTextLower.includes(kw))
         if (!matched) return
+
+        const title = cells.length > 2
+          ? normalizeSpaces(cells.eq(2).text()) || 'Bar Isshee ライブ'
+          : 'Bar Isshee ライブ'
+        const detailText = cells.length > 3
+          ? normalizeSpaces(cells.eq(3).text())
+          : normalizeSpaces(rowText)
 
         const timeMatch = detailText.match(/start\s*(\d{1,2}:\d{2})/i)
         const time = timeMatch ? timeMatch[1] : null
 
-        const venueMatch = detailText.match(/東京【([^】]+)】/)
-        const venue = venueMatch ? venueMatch[1].trim() : '千駄木 Bar Isshee'
-
         const sourceHref =
-          cells.eq(3).find('a[href*="/data/"]').first().attr('href') ||
-          cells.eq(3).find('a').first().attr('href') ||
-          SOURCE_URL
-        const sourceUrl = sourceHref.startsWith('http') ? sourceHref : new URL(sourceHref, SOURCE_URL).toString()
+          $(row).find('a[href*="/data"]').first().attr('href') ||
+          $(row).find('a').first().attr('href') ||
+          MAIN_URL
+        const sourceUrl = sourceHref.startsWith('http')
+          ? sourceHref
+          : new URL(sourceHref, MAIN_URL).toString()
 
         events.push({
           title,
-          venue,
+          venue: '千駄木 Bar Isshee',
           date,
           time,
           ticket_status: guessTicketStatus(detailText),
@@ -351,9 +364,91 @@ export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<Scr
           raw_text: `${title}\n${detailText}`.slice(0, 500),
         })
       } catch (e) {
-        console.error('blocイベントパースエラー:', e)
+        console.error('blocテーブルパースエラー:', e)
       }
     })
+
+    // ── アプローチ②: イベントリンクを直接たどる ─────────────────────────────
+    // www.bloc.jp/barisshee/ のテーブル形式で見つからない場合、
+    // ページ内のイベント詳細リンクを取得して個別にパース
+    if (events.length === 0) {
+      console.log('bloc: テーブルパース0件 → イベントリンクを個別にたどります')
+      const detailLinks = $('a')
+        .toArray()
+        .map(el => {
+          const href = $(el).attr('href') || ''
+          return href.startsWith('http') ? href : new URL(href, MAIN_URL).toString()
+        })
+        .filter(url =>
+          url.includes('/barisshee/data') || url.includes('bloc.jp/event/')
+        )
+        .filter((url, idx, arr) => arr.indexOf(url) === idx) // 重複除去
+        .slice(0, 30) // 最大30件
+
+      console.log(`bloc: 詳細リンク ${detailLinks.length}件`)
+
+      for (const detailUrl of detailLinks) {
+        try {
+          const res2 = await fetch(detailUrl, { headers })
+          if (!res2.ok) continue
+
+          const html2 = await res2.text()
+          const $2 = cheerio.load(html2)
+
+          // タイトルからの日付抽出（例: "05/31/2026 (Sun) [ライブ] ..."）
+          const pageTitle = $2('title').text()
+          const bodyText = $2('body').text()
+
+          // MM/DD/YYYY 形式（bloc新サイト: "05/31/2026"）
+          const newFmtMatch = pageTitle.match(/(\d{1,2})\/(\d{2})\/(\d{4})/)
+          // M/D 形式（旧サイト）
+          const oldFmtMatch = bodyText.match(/(\d{1,2})\/(\d{1,2})/)
+
+          let date: string | null = null
+          if (newFmtMatch) {
+            const [, m, d, y] = newFmtMatch
+            const candidate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+            if (candidate >= todayStr) date = candidate
+          } else if (oldFmtMatch) {
+            date = resolveYear(Number(oldFmtMatch[1]), Number(oldFmtMatch[2]))
+          }
+          if (!date) continue
+
+          // キーワードマッチ
+          const textLower = (pageTitle + ' ' + bodyText).toLowerCase()
+          const matched = keywordLower.some((kw) => textLower.includes(kw))
+          if (!matched) continue
+
+          // 重複チェック
+          if (events.some(e => e.date === date)) continue
+
+          // 開演時間（"open HH:MM / start HH:MM" または "start HH:MM"）
+          const timeMatch2 = bodyText.match(/start\s+(\d{1,2}:\d{2})/i) ||
+            bodyText.match(/開演\s*(\d{1,2}:\d{2})/)
+          const time = timeMatch2 ? timeMatch2[1] : null
+
+          // タイトル整形
+          const titleRaw = pageTitle
+            .replace(/^bloc\s*[-:]\s*/i, '')
+            .replace(/^\d{1,2}\/\d{2}\/\d{4}\s*\([^)]+\)\s*\[.*?\]\s*/, '')
+            .split('@')[0]
+            .trim()
+
+          events.push({
+            title: titleRaw || 'Bar Isshee ライブ',
+            venue: '千駄木 Bar Isshee',
+            date,
+            time,
+            ticket_status: guessTicketStatus(bodyText),
+            source_url: detailUrl,
+            source_type: 'official_site',
+            raw_text: bodyText.slice(0, 500),
+          })
+        } catch (e) {
+          console.error(`blocイベント詳細エラー (${detailUrl}):`, e)
+        }
+      }
+    }
   } catch (e) {
     console.error('blocスクレイプエラー:', e)
   }
@@ -389,15 +484,27 @@ function resolveYear(month: number, day: number): string | null {
   return null
 }
 
-// 指定した年リストの中から「今日以降の最も近い日付」を返す
-// Tumblrの記事公開年を元に年を確定するために使用
+// 記事公開日を基準にイベントの年を確定する
+// ルール：
+//   - 記事のM/D ≦ イベントのM/D → 同じ年のイベント（例: 4月記事 → 5月のライブ）
+//   - 記事のM/D > イベントのM/D → 年越しイベントの可能性あり（例: 12月記事 → 1月のライブ）だけ翌年も試す
+// これにより「2025年5月の記事に書かれた6/15」が2026年6月に誤解されるのを防ぐ
 function resolveYearFrom(
   month: number,
   day: number,
-  candidateYears: number[],
+  postDate: Date,
   todayStr: string
 ): string | null {
-  for (const year of candidateYears) {
+  const postYear = postDate.getFullYear()
+  const postMMDD = (postDate.getMonth() + 1) * 100 + postDate.getDate()
+  const eventMMDD = month * 100 + day
+
+  // 記事のM/D より前のイベントM/D は「翌年へのまたがりイベント」の可能性がある
+  const candidates = eventMMDD < postMMDD
+    ? [postYear, postYear + 1]  // 年越し可能性あり（例: 12月記事 → 1月ライブ）
+    : [postYear]                 // 同年のイベント（例: 4月記事 → 5月ライブ）
+
+  for (const year of candidates) {
     const candidateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     if (candidateStr >= todayStr) {
       return candidateStr

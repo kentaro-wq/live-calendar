@@ -579,6 +579,92 @@ export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<Scr
 }
 
 // ============================================================
+// Peatix スクレイパー
+// https://peatix.com/search?q=ダースレイダー
+// 検索結果から今日以降のイベントを取得
+// ============================================================
+export async function scrapePeatix(keywords: string[]): Promise<ScrapedEvent[]> {
+  const events: ScrapedEvent[] = []
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+
+  for (const keyword of keywords) {
+    try {
+      const url = `https://peatix.com/search?q=${encodeURIComponent(keyword)}&l.address=Japan`
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept-Language': 'ja,en-US;q=0.9',
+        },
+      })
+      if (!res.ok) {
+        console.error(`Peatixアクセスエラー: ${res.status}`)
+        continue
+      }
+
+      const html = await res.text()
+      const $ = cheerio.load(html)
+
+      // Peatixの検索結果: イベントカードを取得
+      $('[data-component="search-result-event-card"], .event-card, [class*="EventCard"], li[class*="event"]').each((_, el) => {
+        try {
+          const $el = $(el)
+          const text = $el.text()
+          const link = $el.find('a').first().attr('href') || ''
+          const sourceUrl = link.startsWith('http') ? link : `https://peatix.com${link}`
+
+          // 日付抽出（Peatixは「2026年5月31日」形式が多い）
+          const dateMatch = text.match(/(\d{4})[年\/](\d{1,2})[月\/](\d{1,2})/)
+          if (!dateMatch) return
+
+          const y = parseInt(dateMatch[1])
+          const m = parseInt(dateMatch[2])
+          const d = parseInt(dateMatch[3])
+          const thisYear = new Date().getFullYear()
+          if (y < thisYear || y > thisYear + 1) return
+
+          const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+          if (candidate < todayStr) return
+
+          // キーワードがテキストに含まれているか確認
+          const textLower = text.toLowerCase()
+          const matched = keywords.some(kw => textLower.includes(kw.toLowerCase()))
+          if (!matched) return
+
+          // タイトルと会場
+          const title = $el.find('[class*="title"], h3, h2').first().text().trim() || 'Peatixイベント'
+          const venueEl = $el.find('[class*="venue"], [class*="location"]').first().text().trim()
+          const venue = venueEl || '会場未定'
+
+          events.push({
+            title,
+            venue,
+            date: candidate,
+            time: null,
+            ticket_status: '要予約',
+            source_url: sourceUrl,
+            source_type: 'peatix',
+            raw_text: text.slice(0, 500),
+          })
+        } catch (e) {
+          console.error('Peatixカードパースエラー:', e)
+        }
+      })
+
+      console.log(`Peatix「${keyword}」: ${events.length}件`)
+    } catch (e) {
+      console.error(`Peatixスクレイプエラー (${keyword}):`, e)
+    }
+  }
+
+  // 重複除去
+  const unique = events.filter((e, i, arr) =>
+    arr.findIndex(x => x.date === e.date && x.venue === e.venue) === i
+  )
+  console.log(`Peatix合計: ${unique.length}件`)
+  return unique
+}
+
+// ============================================================
 // ユーティリティ関数
 // ============================================================
 

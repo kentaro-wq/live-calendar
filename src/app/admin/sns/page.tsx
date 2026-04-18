@@ -154,12 +154,20 @@ export default function SnsCheckPage() {
               <p className="text-xs text-gray-400">ツイートを確認してライブ情報を手動登録</p>
             </div>
           </div>
-          <Link
-            href="/"
-            className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
-          >
-            カレンダーを見る →
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/artists"
+              className="text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+            >
+              🎤 アーティスト管理
+            </Link>
+            <Link
+              href="/"
+              className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
+              カレンダーを見る →
+            </Link>
+          </div>
           <button
             onClick={handleLogout}
             disabled={loggingOut}

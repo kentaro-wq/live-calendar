@@ -16,17 +16,19 @@ export const metadata: Metadata = {
   title: "ライブカレンダー - アーティストのイベント情報まとめ",
   description: "好きなアーティストのライブ・イベント情報を自動収集してカレンダー形式で表示します",
   applicationName: "ライブカレンダー",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "ライブカレンダー",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 

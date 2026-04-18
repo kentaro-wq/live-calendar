@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { scrapeBlocBarIsshee, scrapeHotGate, scrapeWWW, scrapePeatix, ScrapedEvent } from '@/lib/scraper'
+import { scrapeBlocBarIsshee, scrapeHotGate, scrapeWWW, scrapePeatix, scrapeGoogleSearch, ScrapedEvent } from '@/lib/scraper'
 import { sendNewEventNotification } from '@/lib/mailer'
 import { Artist } from '@/types'
 
@@ -68,10 +68,21 @@ export async function GET(request: Request) {
         // ③ Peatix検索
         const peatixEvents = await scrapePeatix([artist.name, 'Darthreider'])
         scrapedEvents.push(...peatixEvents)
+
+        // ④ Google Custom Search（広くひっかける）
+        const googleEvents = await scrapeGoogleSearch(artist.name, [artist.name, 'Darthreider'])
+        scrapedEvents.push(...googleEvents)
       } else {
-        // 他のアーティストはWWWをキーワード検索
+        // 他のアーティストはWWW + Peatix + Google検索
         const wwwEvents = await scrapeWWW([artist.name])
         scrapedEvents.push(...wwwEvents)
+
+        const peatixEvents = await scrapePeatix([artist.name])
+        scrapedEvents.push(...peatixEvents)
+
+        // Google Custom Search
+        const googleEvents = await scrapeGoogleSearch(artist.name, [artist.name])
+        scrapedEvents.push(...googleEvents)
       }
 
       results[artist.name].scraped = scrapedEvents.length

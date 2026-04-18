@@ -21,6 +21,57 @@ function getTicketBadgeStyle(status: TicketStatus | null): string {
   }
 }
 
+// iCalendar のテキスト値をエスケープ
+function escapeIcs(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '')
+}
+
+function downloadIcs(event: Event) {
+  const date = event.date.replace(/-/g, '')
+  const startTime = event.time ? event.time.replace(':', '') + '00' : null
+  const isAllDay = !startTime
+
+  // 終日イベントのDTENDはiCalendar仕様で翌日
+  const nextDay = (() => {
+    const d = new Date(event.date + 'T00:00:00')
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0].replace(/-/g, '')
+  })()
+
+  const dtStart = isAllDay ? `DTSTART;VALUE=DATE:${date}`          : `DTSTART:${date}T${startTime}`
+  const dtEnd   = isAllDay ? `DTEND;VALUE=DATE:${nextDay}`         : `DTEND:${date}T235900`
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'CALSCALE:GREGORIAN',
+    'PRODID:-//ライブカレンダー//JP',
+    'BEGIN:VEVENT',
+    `UID:${event.id}@live-calendar`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+    dtStart,
+    dtEnd,
+    `SUMMARY:${escapeIcs(event.title)}`,
+    `LOCATION:${escapeIcs(event.venue)}`,
+    event.source_url ? `URL:${event.source_url}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n')
+
+  const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${event.date}.ics`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function getSourceLabel(type: string | null): string {
   switch (type) {
     case 'peatix': return 'Peatix'
@@ -86,16 +137,24 @@ export default function EventCard({ event, isAdmin, onDelete }: Props) {
               更新：{format(updatedAt, 'M/d HH:mm')}
             </span>
           </div>
-          {event.source_url && (
-            <a
-              href={event.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition-colors"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => downloadIcs(event)}
+              className="text-xs text-green-600 hover:text-green-800 underline underline-offset-2 transition-colors"
             >
-              {getSourceLabel(event.source_type)} →
-            </a>
-          )}
+              📅 カレンダーに追加
+            </button>
+            {event.source_url && (
+              <a
+                href={event.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition-colors"
+              >
+                {getSourceLabel(event.source_type)} →
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>

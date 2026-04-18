@@ -16,7 +16,10 @@ export type ScrapedEvent = {
 // Google Custom Search スクレイパー
 // 「ダースレイダー ライブ」でGoogle検索し、各ページから日付・会場を抽出
 // ============================================================
-export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEvent[]> {
+export async function scrapeGoogleSearch(
+  artistName: string,
+  keywords: string[]
+): Promise<ScrapedEvent[]> {
   const apiKey = process.env.GOOGLE_API_KEY
   const cseId = process.env.GOOGLE_CSE_ID
   if (!apiKey || !cseId) {
@@ -27,8 +30,10 @@ export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEve
   const events: ScrapedEvent[] = []
   const todayStr = new Date().toLocaleDateString('sv-SE')
   const seenUrls = new Set<string>()
-
   const currentYear = new Date().getFullYear()
+
+  // 除外するドメイン（ニュース記事・まとめサイト等、日程情報が薄いもの）
+  const EXCLUDE_DOMAINS = ['twitter.com', 'x.com', 'youtube.com', 'wikipedia.org', 'ameblo.jp', 'note.com']
 
   for (const keyword of keywords) {
     try {
@@ -36,41 +41,45 @@ export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEve
       const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cseId}&q=${query}&num=10&lr=lang_ja`
       const res = await fetch(url)
       if (!res.ok) {
-        console.error(`Google検索エラー (${keyword}): ${res.status}`)
+        console.error(`Google検索エラー (${keyword}): ${res.status} ${await res.text()}`)
         continue
       }
       const data = await res.json()
-      const items = data.items || []
+      const items: any[] = data.items || []
       console.log(`Google検索「${keyword}」: ${items.length}件`)
 
       for (const item of items) {
         const pageUrl: string = item.link || ''
         if (!pageUrl || seenUrls.has(pageUrl)) continue
+
+        const domain = (() => { try { return new URL(pageUrl).hostname } catch { return '' } })()
+        if (EXCLUDE_DOMAINS.some(d => domain.includes(d))) continue
         seenUrls.add(pageUrl)
 
-        // snippetから日付と会場を抽出（ページを開かずに済む場合）
-        const snippet: string = (item.snippet || '') + ' ' + (item.title || '')
-        const extracted = extractEventFromText(snippet, pageUrl, todayStr)
-        if (extracted) {
-          events.push(extracted)
+        // まずsnippet + titleから抽出を試みる
+        const snippetText = [item.title || '', item.snippet || ''].join(' ')
+        const fromSnippet = extractEventFromText(snippetText, pageUrl, todayStr, artistName, item.title)
+        if (fromSnippet) {
+          events.push(fromSnippet)
           continue
         }
 
-        // snippetで取れない場合はページを取得
+        // snippetで取れない場合はページ本文を取得
         try {
           const pageRes = await fetch(pageUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ja' },
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible)', 'Accept-Language': 'ja,en' },
             signal: AbortSignal.timeout(8000),
           })
           if (!pageRes.ok) continue
           const html = await pageRes.text()
           const $ = cheerio.load(html)
-          $('script, style, nav, footer, header').remove()
-          const text = $('body').text().replace(/\s+/g, ' ').slice(0, 2000)
-          const pageExtracted = extractEventFromText(text, pageUrl, todayStr)
-          if (pageExtracted) events.push(pageExtracted)
+          const pageTitle = $('title').text().trim()
+          $('script, style, nav, footer, header, .nav, .footer, .header, .menu').remove()
+          const text = $('body').text().replace(/\s+/g, ' ').slice(0, 3000)
+          const fromPage = extractEventFromText(text, pageUrl, todayStr, artistName, pageTitle)
+          if (fromPage) events.push(fromPage)
         } catch {
-          // タイムアウトなどはスキップ
+          // タイムアウト等はスキップ
         }
       }
     } catch (e) {
@@ -82,48 +91,72 @@ export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEve
   const unique = events.filter((e, i, arr) =>
     arr.findIndex(x => x.date === e.date && x.venue === e.venue) === i
   )
-  console.log(`Google検索: ${unique.length}件取得`)
+  console.log(`Google検索 (${artistName}): ${unique.length}件取得`)
   return unique
 }
 
 // テキストからイベント情報を抽出するヘルパー
-function extractEventFromText(text: string, sourceUrl: string, todayStr: string): ScrapedEvent | null {
-  // 年が明示された日付パターンのみ受け付ける（年なし日付は誤判定の原因になるため除外）
-  // YYYY年M月D日 / YYYY/M/D / YYYY-M-D
+function extractEventFromText(
+  text: string,
+  sourceUrl: string,
+  todayStr: string,
+  artistName: string,
+  pageTitle?: string
+): ScrapedEvent | null {
+  // 年が明示された日付パターン（年なし日付は誤判定の原因になるため除外）
   const datePatterns = [
-    /(\d{4})[年](\d{1,2})[月](\d{1,2})日?/,
-    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
+    /(\d{4})[年](\d{1,2})[月](\d{1,2})日?/g,
+    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/g,
   ]
 
+  const thisYear = new Date().getFullYear()
   let resolvedDate: string | null = null
 
   for (const pattern of datePatterns) {
-    const dateMatch = text.match(pattern)
-    if (dateMatch) {
-      const y = parseInt(dateMatch[1])
-      const m = parseInt(dateMatch[2])
-      const d = parseInt(dateMatch[3])
-      // 妥当な年かチェック（今年〜来年のみ）
-      const thisYear = new Date().getFullYear()
+    let match
+    while ((match = pattern.exec(text)) !== null) {
+      const y = parseInt(match[1])
+      const m = parseInt(match[2])
+      const d = parseInt(match[3])
       if (y < thisYear || y > thisYear + 1) continue
+      if (m < 1 || m > 12 || d < 1 || d > 31) continue
       const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
       if (candidate >= todayStr) { resolvedDate = candidate; break }
     }
+    if (resolvedDate) break
   }
   if (!resolvedDate) return null
 
-  // 会場を抽出（「@」「at」「会場」「会場：」などの後）
-  const venueMatch = text.match(/(?:@|at\s|会場[：:]\s*|にて\s*)([^\s,、。\n]{2,20})/i)
-  const venue = venueMatch ? venueMatch[1].trim() : '会場未定'
+  // 会場を抽出（ライブハウス・ホール等のキーワードを優先）
+  const venuePatterns = [
+    /(?:会場[：:\s]*|場所[：:\s]*|at\s+|＠\s*|@\s*)([^\s,、。\n「」【】]{2,25})/i,
+    /([^\s,、。\n]{2,20}(?:ホール|HALL|hall|シアター|劇場|ライブハウス|クラブ|CLUB|club|スタジオ|STUDIO|フェス|FES|カフェ|CAFE|バー|BAR|酒場|公会堂|市民会館|アリーナ|ARENA|ドーム|DOME|野外|公園))/i,
+  ]
+  let venue = '会場未定'
+  for (const vp of venuePatterns) {
+    const m = text.match(vp)
+    if (m) { venue = m[1].trim().replace(/[」】）)]/g, ''); break }
+  }
 
-  // タイトル（URLのドメインまたは検索結果タイトルから）
-  const domain = (() => { try { return new URL(sourceUrl).hostname } catch { return 'イベント' } })()
+  // タイトル：ページタイトルからアーティスト関連部分を活用
+  let title = `${artistName} 出演イベント`
+  if (pageTitle) {
+    // ページタイトルをそのまま使う（長すぎる場合は短縮）
+    const cleaned = pageTitle.replace(/[｜|\-–—].*$/, '').trim()
+    if (cleaned.length >= 4 && cleaned.length <= 60) title = cleaned
+  }
+
+  // 時間抽出
+  const timeMatch = text.match(/(\d{1,2})[：:](\d{2})\s*(?:開[演場]|OPEN|START|start)/)
+  const time = timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : null
+
+  const domain = (() => { try { return new URL(sourceUrl).hostname } catch { return '' } })()
 
   return {
-    title: `ダースレイダー出演イベント`,
+    title,
     venue,
     date: resolvedDate,
-    time: null,
+    time,
     ticket_status: guessTicketStatus(text),
     source_url: sourceUrl,
     source_type: domain.includes('peatix') ? 'peatix' : 'venue_site',

@@ -55,19 +55,17 @@ export async function GET(request: Request) {
       const scrapedEvents: ScrapedEvent[] = []
 
       if (artist.slug === 'darth-reider') {
-        // ① 公式サイト HOT GATE（最も信頼できる情報源）
-        const hotgateEvents = await scrapeHotGate()
-        scrapedEvents.push(...hotgateEvents)
+        // HOT GATEは放置状態のため無効化
 
-        // ② 渋谷WWW（出演が判明した場合のみ追加）
+        // ① 渋谷WWW（出演が判明した場合のみ追加）
         const wwwEvents = await scrapeWWW([artist.name, 'Darthreider', 'DARTHREIDER', 'The Bassons'])
         scrapedEvents.push(...wwwEvents)
 
-        // ③ bloc: Bar Isshee（出演キーワードに一致するもののみ）
+        // ② bloc: Bar Isshee（出演キーワードに一致するもののみ）
         const blocEvents = await scrapeBlocBarIsshee([artist.name, 'Darthreider', 'DARTHREIDER', 'The Bassons'])
         scrapedEvents.push(...blocEvents)
 
-        // ④ Peatix検索
+        // ③ Peatix検索
         const peatixEvents = await scrapePeatix([artist.name, 'Darthreider'])
         scrapedEvents.push(...peatixEvents)
       } else {

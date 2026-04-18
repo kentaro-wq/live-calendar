@@ -56,7 +56,7 @@ export async function scrapeHotGate(): Promise<ScrapedEvent[]> {
           if (tsAttr && /^\d+$/.test(tsAttr)) {
             const pd = new Date(parseInt(tsAttr) * 1000)
             const ageMs = Date.now() - pd.getTime()
-            if (ageMs > 365 * 24 * 60 * 60 * 1000) return { postYear: null, postDateObj: null } // 1年超の記事は除外
+            if (ageMs > 180 * 24 * 60 * 60 * 1000) return { postYear: null, postDateObj: null } // 6ヶ月超の記事は除外
             return { postYear: pd.getFullYear(), postDateObj: pd }
           }
           return { postYear: null, postDateObj: null } // タイムスタンプなし：年不明
@@ -501,10 +501,13 @@ function resolveYearFrom(
   const postMMDD = (postDate.getMonth() + 1) * 100 + postDate.getDate()
   const eventMMDD = month * 100 + day
 
-  // 記事のM/D より前のイベントM/D は「翌年へのまたがりイベント」の可能性がある
-  const candidates = eventMMDD < postMMDD
-    ? [postYear, postYear + 1]  // 年越し可能性あり（例: 12月記事 → 1月ライブ）
-    : [postYear]                 // 同年のイベント（例: 4月記事 → 5月ライブ）
+  // 記事が直近90日以内の場合のみ翌年への繰り上げを許可
+  // 古い記事（例: 2025年8月投稿）の日付（8/2）が2026年として誤解されるのを防ぐ
+  const postIsRecent = (Date.now() - postDate.getTime()) < 90 * 24 * 60 * 60 * 1000
+
+  const candidates = (eventMMDD < postMMDD && postIsRecent)
+    ? [postYear, postYear + 1]  // 直近記事 + 年越し可能性あり（例: 12月記事 → 1月ライブ）
+    : [postYear]                 // 同年のイベント（古い記事は翌年に繰り上げない）
 
   for (const year of candidates) {
     const candidateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`

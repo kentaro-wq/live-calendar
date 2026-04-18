@@ -301,7 +301,9 @@ export async function scrapeBlocBarIsshee(artistKeywords: string[]): Promise<Scr
       return []
     }
 
-    const html = await res.text()
+    // www.bloc.jp/barisshee/ は EUC-JP エンコーディングのため TextDecoder で正しくデコード
+    const buffer = await res.arrayBuffer()
+    const html = new TextDecoder('euc-jp').decode(buffer)
     const $ = cheerio.load(html)
     const keywordLower = artistKeywords.map((kw) => kw.toLowerCase())
     const todayStr = new Date().toLocaleDateString('sv-SE')

@@ -52,6 +52,9 @@ export default function SnsCheckPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [crawling, setCrawling] = useState(false)
+  const [crawlResult, setCrawlResult] = useState<string | null>(null)
+  const [crawlError, setCrawlError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,6 +107,22 @@ export default function SnsCheckPage() {
       setError(e instanceof Error ? e.message : '登録エラーが発生しました')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleCrawl = async () => {
+    setCrawling(true)
+    setCrawlResult(null)
+    setCrawlError(null)
+    try {
+      const res = await fetch('/api/admin/crawl', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'クロール失敗')
+      setCrawlResult(`完了：新着 ${data.newEventsCount ?? 0} 件`)
+    } catch (e: unknown) {
+      setCrawlError(e instanceof Error ? e.message : 'クロールエラー')
+    } finally {
+      setCrawling(false)
     }
   }
 
@@ -168,6 +187,31 @@ export default function SnsCheckPage() {
                 {link.label}
               </a>
             ))}
+          </div>
+        </section>
+
+        {/* クロール実行 */}
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-700">自動クロール実行</h2>
+              <p className="text-xs text-gray-400 mt-0.5">HOT GATE・渋谷WWW・Bar Isshee を今すぐ取得してDBに保存します</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {crawlResult && (
+                <span className="text-xs text-green-600 font-medium">✅ {crawlResult}</span>
+              )}
+              {crawlError && (
+                <span className="text-xs text-red-600 font-medium">⚠️ {crawlError}</span>
+              )}
+              <button
+                onClick={handleCrawl}
+                disabled={crawling}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {crawling ? '取得中...' : 'クロール実行'}
+              </button>
+            </div>
           </div>
         </section>
 

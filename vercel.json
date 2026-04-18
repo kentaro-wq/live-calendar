@@ -4,5 +4,16 @@
       "path": "/api/cron/crawl",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/test/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/crawl/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin/crawl/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

@@ -8,10 +8,12 @@ import EventCard from './EventCard'
 type Props = {
   events: Event[]
   selectedDate: Date | null
+  isAdmin?: boolean
+  onDelete?: (id: string) => void
 }
 
 // イベント一覧コンポーネント
-export default function EventList({ events, selectedDate }: Props) {
+export default function EventList({ events, selectedDate, isAdmin, onDelete }: Props) {
   // 選択した日付があればその日のイベントだけ表示、なければすべて表示
   const filteredEvents = selectedDate
     ? events.filter((e) => isSameDay(parse(e.date, 'yyyy-MM-dd', new Date()), selectedDate))
@@ -51,7 +53,7 @@ export default function EventList({ events, selectedDate }: Props) {
           </h3>
           <div className="space-y-3">
             {grouped[dateKey].map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} isAdmin={isAdmin} onDelete={onDelete} />
             ))}
           </div>
         </div>

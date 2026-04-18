@@ -91,10 +91,6 @@ export async function GET(request: Request) {
 // POST /api/events - イベントを手動登録（SNS告知チェック画面から使用）
 export async function POST(request: Request) {
   try {
-    if (!(await hasAdminAccess(request))) {
-      return NextResponse.json({ error: '管理者認証が必要です' }, { status: 401 })
-    }
-
     const body = await request.json()
     const { artist_id, title, venue, date, time, ticket_status, source_url, source_type } = body
 

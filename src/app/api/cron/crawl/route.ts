@@ -18,6 +18,18 @@ export async function GET(request: Request) {
   console.log('クロール開始:', new Date().toISOString())
 
   const supabase = createAdminClient()
+
+  // 過去イベントをDBから削除（今日より前の日付）
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+  const { error: deleteError, count: deletedCount } = await supabase
+    .from('events')
+    .delete({ count: 'exact' })
+    .lt('date', todayStr)
+  if (deleteError) {
+    console.warn('過去イベント削除エラー:', deleteError.message)
+  } else {
+    console.log(`過去イベント削除: ${deletedCount ?? 0}件`)
+  }
   const newEventsAll: any[] = []
   const results: Record<string, { scraped: number; saved: number; errors: number }> = {}
 

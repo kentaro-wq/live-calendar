@@ -56,8 +56,8 @@ export async function GET(request: Request) {
       query = query.gte('date', startDate).lte('date', endDate)
     } else {
       // 月指定がない場合は from パラメータ（デフォルト：今日）以降のイベントを取得
-      const from = searchParams.get('from')
-      if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      const from = searchParams.get('from') ?? new Date().toLocaleDateString('sv-SE')
+      if (/^\d{4}-\d{2}-\d{2}$/.test(from)) {
         query = query.gte('date', from)
       }
     }

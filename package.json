@@ -13,6 +13,7 @@
     "force-clear-all:execute": "npx tsx scripts/force-clear-all.ts --execute"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
     "cheerio": "^1.2.0",

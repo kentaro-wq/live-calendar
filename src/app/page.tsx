@@ -19,6 +19,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -61,6 +62,43 @@ export default function Home() {
 
   const handleDelete = (id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id))
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setExtracting(true)
+    setSubmitError(null)
+    try {
+      const reader = new FileReader()
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const mediaType = file.type || 'image/jpeg'
+      const res = await fetch('/api/extract-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mediaType }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '読み取りに失敗しました')
+      const ev = data.event
+      setForm(p => ({
+        ...p,
+        title:         ev.title         ?? p.title,
+        venue:         ev.venue         ?? p.venue,
+        date:          ev.date          ?? p.date,
+        time:          ev.time          ?? p.time,
+        ticket_status: ev.ticket_status ?? p.ticket_status,
+      }))
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : '画像の読み取りに失敗しました')
+    } finally {
+      setExtracting(false)
+      e.target.value = ''
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,6 +219,22 @@ export default function Home() {
             {submitError && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">⚠️ {submitError}</div>
             )}
+            {/* 画像読み取りボタン */}
+            <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-xl py-3 text-sm font-medium cursor-pointer transition-colors ${extracting ? 'border-indigo-300 bg-indigo-50 text-indigo-400' : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600'}`}>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+                disabled={extracting}
+              />
+              {extracting ? (
+                <><span className="animate-spin">⏳</span> 画像を読み取り中...</>
+              ) : (
+                <><span>📷</span> フライヤー・スクショから自動入力</>
+              )}
+            </label>
+
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">アーティスト</label>

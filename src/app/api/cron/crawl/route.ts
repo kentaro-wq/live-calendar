@@ -48,6 +48,9 @@ export async function GET(request: Request) {
 
     // 各アーティストについてクロール
     for (const artist of artists) {
+      // 「その他」は手動登録専用のためクロールしない
+      if (artist.slug === 'others') continue
+
       console.log(`クロール中: ${artist.name}`)
       results[artist.name] = { scraped: 0, saved: 0, errors: 0 }
 

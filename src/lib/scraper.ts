@@ -28,9 +28,11 @@ export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEve
   const todayStr = new Date().toLocaleDateString('sv-SE')
   const seenUrls = new Set<string>()
 
+  const currentYear = new Date().getFullYear()
+
   for (const keyword of keywords) {
     try {
-      const query = encodeURIComponent(`${keyword} ライブ 出演`)
+      const query = encodeURIComponent(`${keyword} ライブ 出演 ${currentYear}`)
       const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cseId}&q=${query}&num=10&lr=lang_ja`
       const res = await fetch(url)
       if (!res.ok) {
@@ -86,30 +88,26 @@ export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEve
 
 // テキストからイベント情報を抽出するヘルパー
 function extractEventFromText(text: string, sourceUrl: string, todayStr: string): ScrapedEvent | null {
-  // 日付パターン: YYYY年M月D日 / YYYY/M/D / M月D日
+  // 年が明示された日付パターンのみ受け付ける（年なし日付は誤判定の原因になるため除外）
+  // YYYY年M月D日 / YYYY/M/D / YYYY-M-D
   const datePatterns = [
-    /(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})日?/,
-    /(\d{1,2})月(\d{1,2})日/,
+    /(\d{4})[年](\d{1,2})[月](\d{1,2})日?/,
+    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
   ]
 
   let resolvedDate: string | null = null
-  let dateMatch: RegExpMatchArray | null = null
 
   for (const pattern of datePatterns) {
-    dateMatch = text.match(pattern)
+    const dateMatch = text.match(pattern)
     if (dateMatch) {
-      if (dateMatch[3]) {
-        // YYYY年M月D日 形式
-        const y = parseInt(dateMatch[1])
-        const m = parseInt(dateMatch[2])
-        const d = parseInt(dateMatch[3])
-        const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-        if (candidate >= todayStr) resolvedDate = candidate
-      } else {
-        // M月D日 形式 → 年を推定
-        resolvedDate = resolveYear(parseInt(dateMatch[1]), parseInt(dateMatch[2]))
-      }
-      if (resolvedDate) break
+      const y = parseInt(dateMatch[1])
+      const m = parseInt(dateMatch[2])
+      const d = parseInt(dateMatch[3])
+      // 妥当な年かチェック（今年〜来年のみ）
+      const thisYear = new Date().getFullYear()
+      if (y < thisYear || y > thisYear + 1) continue
+      const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      if (candidate >= todayStr) { resolvedDate = candidate; break }
     }
   }
   if (!resolvedDate) return null

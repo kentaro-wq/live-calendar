@@ -27,7 +27,9 @@ export default function Home() {
         const res = await fetch(`/api/events?from=${todayStr}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'データの取得に失敗しました')
-        setEvents(data.events)
+        // クライアント側でも念のため過去イベントを除外
+        const futureEvents = (data.events as Event[]).filter((e) => e.date >= todayStr)
+        setEvents(futureEvents)
         setArtists(data.artists)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'データの取得に失敗しました')

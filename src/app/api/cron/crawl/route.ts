@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { scrapeBlocBarIsshee, scrapeHotGate, scrapeWWW, ScrapedEvent } from '@/lib/scraper'
+import { scrapeBlocBarIsshee, scrapeHotGate, scrapeWWW, scrapeGoogleSearch, ScrapedEvent } from '@/lib/scraper'
 import { sendNewEventNotification } from '@/lib/mailer'
 import { Artist } from '@/types'
 
@@ -66,6 +66,10 @@ export async function GET(request: Request) {
         // ③ bloc: Bar Isshee（出演キーワードに一致するもののみ）
         const blocEvents = await scrapeBlocBarIsshee([artist.name, 'Darthreider', 'DARTHREIDER', 'The Bassons'])
         scrapedEvents.push(...blocEvents)
+
+        // ④ Google検索（広くイベント情報を収集）
+        const googleEvents = await scrapeGoogleSearch(['ダースレイダー', 'Darthreider'])
+        scrapedEvents.push(...googleEvents)
       } else {
         // 他のアーティストはWWWをキーワード検索
         const wwwEvents = await scrapeWWW([artist.name])

@@ -13,6 +13,127 @@ export type ScrapedEvent = {
 }
 
 // ============================================================
+// Google Custom Search スクレイパー
+// 「ダースレイダー ライブ」でGoogle検索し、各ページから日付・会場を抽出
+// ============================================================
+export async function scrapeGoogleSearch(keywords: string[]): Promise<ScrapedEvent[]> {
+  const apiKey = process.env.GOOGLE_API_KEY
+  const cseId = process.env.GOOGLE_CSE_ID
+  if (!apiKey || !cseId) {
+    console.warn('GOOGLE_API_KEY または GOOGLE_CSE_ID が未設定')
+    return []
+  }
+
+  const events: ScrapedEvent[] = []
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+  const seenUrls = new Set<string>()
+
+  for (const keyword of keywords) {
+    try {
+      const query = encodeURIComponent(`${keyword} ライブ 出演`)
+      const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cseId}&q=${query}&num=10&lr=lang_ja`
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.error(`Google検索エラー (${keyword}): ${res.status}`)
+        continue
+      }
+      const data = await res.json()
+      const items = data.items || []
+      console.log(`Google検索「${keyword}」: ${items.length}件`)
+
+      for (const item of items) {
+        const pageUrl: string = item.link || ''
+        if (!pageUrl || seenUrls.has(pageUrl)) continue
+        seenUrls.add(pageUrl)
+
+        // snippetから日付と会場を抽出（ページを開かずに済む場合）
+        const snippet: string = (item.snippet || '') + ' ' + (item.title || '')
+        const extracted = extractEventFromText(snippet, pageUrl, todayStr)
+        if (extracted) {
+          events.push(extracted)
+          continue
+        }
+
+        // snippetで取れない場合はページを取得
+        try {
+          const pageRes = await fetch(pageUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ja' },
+            signal: AbortSignal.timeout(8000),
+          })
+          if (!pageRes.ok) continue
+          const html = await pageRes.text()
+          const $ = cheerio.load(html)
+          $('script, style, nav, footer, header').remove()
+          const text = $('body').text().replace(/\s+/g, ' ').slice(0, 2000)
+          const pageExtracted = extractEventFromText(text, pageUrl, todayStr)
+          if (pageExtracted) events.push(pageExtracted)
+        } catch {
+          // タイムアウトなどはスキップ
+        }
+      }
+    } catch (e) {
+      console.error(`Google検索スクレイプエラー (${keyword}):`, e)
+    }
+  }
+
+  // 重複除去（同じ日付＋会場）
+  const unique = events.filter((e, i, arr) =>
+    arr.findIndex(x => x.date === e.date && x.venue === e.venue) === i
+  )
+  console.log(`Google検索: ${unique.length}件取得`)
+  return unique
+}
+
+// テキストからイベント情報を抽出するヘルパー
+function extractEventFromText(text: string, sourceUrl: string, todayStr: string): ScrapedEvent | null {
+  // 日付パターン: YYYY年M月D日 / YYYY/M/D / M月D日
+  const datePatterns = [
+    /(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})日?/,
+    /(\d{1,2})月(\d{1,2})日/,
+  ]
+
+  let resolvedDate: string | null = null
+  let dateMatch: RegExpMatchArray | null = null
+
+  for (const pattern of datePatterns) {
+    dateMatch = text.match(pattern)
+    if (dateMatch) {
+      if (dateMatch[3]) {
+        // YYYY年M月D日 形式
+        const y = parseInt(dateMatch[1])
+        const m = parseInt(dateMatch[2])
+        const d = parseInt(dateMatch[3])
+        const candidate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        if (candidate >= todayStr) resolvedDate = candidate
+      } else {
+        // M月D日 形式 → 年を推定
+        resolvedDate = resolveYear(parseInt(dateMatch[1]), parseInt(dateMatch[2]))
+      }
+      if (resolvedDate) break
+    }
+  }
+  if (!resolvedDate) return null
+
+  // 会場を抽出（「@」「at」「会場」「会場：」などの後）
+  const venueMatch = text.match(/(?:@|at\s|会場[：:]\s*|にて\s*)([^\s,、。\n]{2,20})/i)
+  const venue = venueMatch ? venueMatch[1].trim() : '会場未定'
+
+  // タイトル（URLのドメインまたは検索結果タイトルから）
+  const domain = (() => { try { return new URL(sourceUrl).hostname } catch { return 'イベント' } })()
+
+  return {
+    title: `ダースレイダー出演イベント`,
+    venue,
+    date: resolvedDate,
+    time: null,
+    ticket_status: guessTicketStatus(text),
+    source_url: sourceUrl,
+    source_type: domain.includes('peatix') ? 'peatix' : 'venue_site',
+    raw_text: text.slice(0, 500),
+  }
+}
+
+// ============================================================
 // HOT GATE（公式サイト）スクレイパー
 // https://hotgate.link/gigs
 // Tumblrベースのライブ情報ページから予定イベントを取得する

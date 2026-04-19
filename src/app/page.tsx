@@ -27,6 +27,7 @@ export default function Home() {
     title: '',
     venue: '',
     date: '',
+    open_time: '',
     time: '',
     ticket_status: 'チケット確認中',
     source_url: '',
@@ -64,23 +65,37 @@ export default function Home() {
     setEvents(prev => prev.filter(e => e.id !== id))
   }
 
+  const handleUpdate = (updated: Event) => {
+    setEvents(prev => prev.map(e => e.id === updated.id ? updated : e))
+  }
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setExtracting(true)
     setSubmitError(null)
     try {
-      const reader = new FileReader()
+      // Canvasで画像を圧縮（最大1200px・JPEG 80%）
       const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(file)
+        const img = new Image()
+        const objectUrl = URL.createObjectURL(file)
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl)
+          const MAX = 1200
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+          const canvas = document.createElement('canvas')
+          canvas.width  = Math.round(img.width  * scale)
+          canvas.height = Math.round(img.height * scale)
+          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+          resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1])
+        }
+        img.onerror = reject
+        img.src = objectUrl
       })
-      const mediaType = file.type || 'image/jpeg'
       const res = await fetch('/api/extract-event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mediaType }),
+        body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '読み取りに失敗しました')
@@ -90,11 +105,14 @@ export default function Home() {
         title:         ev.title         ?? p.title,
         venue:         ev.venue         ?? p.venue,
         date:          ev.date          ?? p.date,
+        open_time:     ev.open_time     ?? p.open_time,
         time:          ev.time          ?? p.time,
         ticket_status: ev.ticket_status ?? p.ticket_status,
       }))
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : '画像の読み取りに失敗しました')
+      const msg = err instanceof Error ? err.message : '画像の読み取りに失敗しました'
+      alert(`エラー: ${msg}`)
+      setSubmitError(msg)
     } finally {
       setExtracting(false)
       e.target.value = ''
@@ -110,12 +128,19 @@ export default function Home() {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, source_type: 'manual' }),
+        body: JSON.stringify({
+          ...form,
+          time: form.open_time && form.time
+            ? `${form.open_time}/${form.time}`
+            : (form.time || form.open_time || null),
+          source_type: 'manual',
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '登録に失敗しました')
       setSubmitSuccess(`「${data.event.title}」を追加しました！`)
-      setForm({ artist_id: artists[0]?.id || '', title: '', venue: '', date: '', time: '', ticket_status: 'チケット確認中', source_url: '' })
+      const others = artists.find(a => a.slug === 'others')
+      setForm({ artist_id: (others ?? artists[0])?.id || '', title: '', venue: '', date: '', open_time: '', time: '', ticket_status: 'チケット確認中', source_url: '' })
       setShowForm(false)
       fetchEvents()
     } catch (e: unknown) {
@@ -127,13 +152,18 @@ export default function Home() {
 
   useEffect(() => {
     if (artists.length > 0 && !form.artist_id) {
-      setForm(prev => ({ ...prev, artist_id: artists[0].id }))
+      // デフォルトは「その他」、なければ先頭アーティスト
+      const others = artists.find(a => a.slug === 'others')
+      setForm(prev => ({ ...prev, artist_id: (others ?? artists[0]).id }))
     }
   }, [artists])
 
   const filteredEvents = selectedArtistIds.length === 0
     ? events
-    : events.filter((e) => selectedArtistIds.includes(e.artist_id))
+    : events.filter((e) =>
+        selectedArtistIds.includes(e.artist_id) ||
+        (e.co_artist_ids ?? []).some(id => selectedArtistIds.includes(id))
+      )
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate((prev) =>
@@ -202,7 +232,7 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              <EventList events={filteredEvents} selectedDate={selectedDate} isAdmin={isAdmin} onDelete={handleDelete} />
+              <EventList events={filteredEvents} artists={artists} selectedDate={selectedDate} isAdmin={isAdmin} onDelete={handleDelete} onUpdate={handleUpdate} />
             </section>
           </>
         )}
@@ -253,14 +283,19 @@ export default function Home() {
                 <input type="text" value={form.venue} onChange={e => setForm(p => ({ ...p, venue: e.target.value }))}
                   placeholder="例: 新代田FEVER" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3 sm:col-span-1">
                   <label className="block text-xs font-medium text-gray-600 mb-1">日付 <span className="text-red-400">*</span></label>
                   <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                     min={todayStr} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">開演時間</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">開場 OPEN</label>
+                  <input type="time" value={form.open_time} onChange={e => setForm(p => ({ ...p, open_time: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">開演 START</label>
                   <input type="time" value={form.time} onChange={e => setForm(p => ({ ...p, time: e.target.value }))}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>

@@ -21,6 +21,8 @@ export type Event = {
   source_url: string | null
   source_type: SourceType | null
   raw_text: string | null
+  manually_edited: boolean
+  co_artist_ids: string[]
   created_at: string
   updated_at: string
   // リレーション（JOINで取得する場合）

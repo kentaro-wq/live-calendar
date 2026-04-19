@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname === '/api/events' && (method === 'POST' || method === 'DELETE')) {
+  if (pathname === '/api/events' && method === 'DELETE') {
     const headerSecret = getAdminSecretFromRequest(request)
     const hasHeaderAuth = isValidAdminSecret(headerSecret)
 

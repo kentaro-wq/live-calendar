@@ -139,6 +139,20 @@ async function upsertEvent(
   try {
     const now = new Date().toISOString()
 
+    // 手動編集済みのイベントは上書きしない
+    const { data: existing } = await supabase
+      .from('events')
+      .select('id, manually_edited')
+      .eq('artist_id', artist.id)
+      .eq('date', scraped.date)
+      .eq('venue', scraped.venue)
+      .maybeSingle()
+
+    if (existing?.manually_edited) {
+      console.log(`手動編集済みのためスキップ: ${scraped.date} ${scraped.venue}`)
+      return null
+    }
+
     const { data: saved, error } = await supabase
       .from('events')
       .upsert(

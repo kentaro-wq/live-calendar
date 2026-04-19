@@ -148,6 +148,43 @@ export async function POST(request: Request) {
   }
 }
 
+// PATCH /api/events - イベントを編集（誰でも可・手動編集フラグを立てる）
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, title, venue, date, time, ticket_status, source_url, co_artist_ids } = body
+
+    if (!id) return NextResponse.json({ error: 'idが必要です' }, { status: 400 })
+    if (!title || !venue || !date) {
+      return NextResponse.json({ error: 'タイトル・会場・日付は必須です' }, { status: 400 })
+    }
+
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('events')
+      .update({
+        title,
+        venue,
+        date,
+        time: time || null,
+        ticket_status: ticket_status || 'チケット確認中',
+        source_url: source_url || null,
+        co_artist_ids: co_artist_ids || [],
+        manually_edited: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*, artists(*)')
+      .single()
+
+    if (error) return NextResponse.json({ error: '更新に失敗しました' }, { status: 500 })
+    return NextResponse.json({ success: true, event: data })
+  } catch (e) {
+    console.error('更新エラー:', e)
+    return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 })
+  }
+}
+
 // DELETE /api/events?id=xxx - イベントを削除
 export async function DELETE(request: Request) {
   try {

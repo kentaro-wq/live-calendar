@@ -237,41 +237,41 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">イベントタイトル</label>
               <input type="text" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">会場</label>
               <input type="text" value={editForm.venue} onChange={e => setEditForm(p => ({ ...p, venue: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-3 sm:col-span-1">
                 <label className="block text-xs font-medium text-gray-600 mb-1">日付</label>
                 <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">開場 OPEN</label>
                 <input type="time" value={editForm.open_time} onChange={e => setEditForm(p => ({ ...p, open_time: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">開演 START</label>
                 <input type="time" value={editForm.time} onChange={e => setEditForm(p => ({ ...p, time: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">チケット状況</label>
               <select value={editForm.ticket_status} onChange={e => setEditForm(p => ({ ...p, ticket_status: e.target.value as TicketStatus }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white">
                 {TICKET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">情報元URL</label>
               <input type="url" value={editForm.source_url} onChange={e => setEditForm(p => ({ ...p, source_url: e.target.value }))}
-                placeholder="https://..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                placeholder="https://..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">共演アーティスト（複数選択可）</label>

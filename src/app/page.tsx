@@ -22,6 +22,11 @@ export default function Home() {
   const [extracting, setExtracting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // 管理者ログインモーダル
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
   const [form, setForm] = useState({
     artist_id: '',
     title: '',
@@ -67,6 +72,38 @@ export default function Home() {
 
   const handleUpdate = (updated: Event) => {
     setEvents(prev => prev.map(e => e.id === updated.id ? updated : e))
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoggingIn(true)
+    setLoginError(null)
+    try {
+      const res = await fetch('/api/admin/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'ログインに失敗しました')
+      setIsAdmin(true)
+      setShowLoginModal(false)
+      setLoginPassword('')
+    } catch (err: unknown) {
+      setLoginError(err instanceof Error ? err.message : 'ログインに失敗しました')
+    } finally {
+      setLoggingIn(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    if (!confirm('管理者モードからログアウトしますか？')) return
+    try {
+      await fetch('/api/admin/session', { method: 'DELETE' })
+      setIsAdmin(false)
+    } catch {
+      // ignore
+    }
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +231,23 @@ export default function Home() {
             <Link href="/notifications" className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
               通知設定
             </Link>
+            {isAdmin ? (
+              <button
+                onClick={handleLogout}
+                title="管理者ログアウト"
+                className="text-base text-amber-600 hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+              >
+                🔓
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                title="管理者ログイン"
+                className="text-base text-gray-300 hover:text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                🔒
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -318,6 +372,48 @@ export default function Home() {
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 管理者ログインモーダル */}
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">🔒 管理者ログイン</h2>
+              <button
+                type="button"
+                onClick={() => { setShowLoginModal(false); setLoginError(null); setLoginPassword('') }}
+                className="text-gray-400 hover:text-gray-600 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">
+                ⚠️ {loginError}
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">パスワード</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                autoFocus
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loggingIn}
+              className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {loggingIn ? '認証中...' : 'ログイン'}
+            </button>
+            <p className="text-xs text-gray-400 text-center">ログインすると、イベントの削除ができるようになります。</p>
+          </form>
         </div>
       )}
     </div>

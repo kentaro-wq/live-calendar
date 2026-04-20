@@ -157,7 +157,14 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
               {event.time && (
                 <p className="text-sm text-gray-500">{formatTime(event.time)}</p>
               )}
-              <p className="text-base font-medium text-gray-700 mt-1">{event.venue}</p>
+              <a
+                href={`https://maps.apple.com/?q=${encodeURIComponent(event.venue)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base font-medium text-gray-700 mt-1 underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+              >
+                {event.venue}
+              </a>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {event.artists && (

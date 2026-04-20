@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  'https://puflmpqhpmjowbzvxnfi.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1ZmxtcHFocG1qb3dienZ4bmZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjA4MTY1OCwiZXhwIjoyMDkxNjU3NjU4fQ.ZH19U8rJPzZQdJ3ajpE6pnIYBcbhLPy3vWnAsT8CRUM'
-)
+// 使い方: node --env-file=.env.local scripts/list-events.mjs
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error('環境変数 NEXT_PUBLIC_SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY が必要です。')
+  console.error('実行例: node --env-file=.env.local scripts/list-events.mjs')
+  process.exit(1)
+}
+
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
 const { data, error } = await supabase
   .from('events')

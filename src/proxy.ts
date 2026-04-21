@@ -6,7 +6,9 @@ import {
   verifyAdminSessionToken,
 } from '@/lib/admin-auth'
 
-export async function middleware(request: NextRequest) {
+// Next.js 16 で middleware → proxy にリネーム（同機能）
+// /admin 系のセッションガードと、/api/events DELETE の二重認証チェックを担う。
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method.toUpperCase()
 

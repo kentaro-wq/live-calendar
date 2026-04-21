@@ -15,6 +15,23 @@ type Props = {
 
 const TICKET_STATUSES: TicketStatus[] = ['チケット確認中', '要予約', '当日券あり', '予約不要', '完売']
 
+// 地図検索で正しい場所にヒットしない会場（地図リンクを無効化）
+const AMBIGUOUS_VENUE_NAMES = [
+  '湯島 道',
+  '湯島の道',
+  'BARISSHEE',
+]
+
+function normalizeVenueName(name: string): string {
+  return name.trim().toLowerCase().replace(/[\s\u3000]+/g, '')
+}
+
+const AMBIGUOUS_VENUES = new Set(AMBIGUOUS_VENUE_NAMES.map(normalizeVenueName))
+
+function isAmbiguousVenue(venue: string): boolean {
+  return AMBIGUOUS_VENUES.has(normalizeVenueName(venue))
+}
+
 function getTicketBadgeStyle(status: TicketStatus | null): string {
   switch (status) {
     case '予約不要': return 'bg-green-100 text-green-700'
@@ -157,14 +174,20 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
               {event.time && (
                 <p className="text-sm text-gray-500">{formatTime(event.time)}</p>
               )}
-              <a
-                href={`https://maps.apple.com/?q=${encodeURIComponent(event.venue)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-base font-medium text-gray-700 mt-1 underline decoration-dotted underline-offset-2 hover:text-indigo-600"
-              >
-                {event.venue}
-              </a>
+              {isAmbiguousVenue(event.venue) ? (
+                <p className="text-base font-medium text-gray-700 mt-1">
+                  {event.venue}
+                </p>
+              ) : (
+                <a
+                  href={`https://maps.apple.com/?q=${encodeURIComponent(event.venue)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-base font-medium text-gray-700 mt-1 underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+                >
+                  {event.venue}
+                </a>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {event.artists && (

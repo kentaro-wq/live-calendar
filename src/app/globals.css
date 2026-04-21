@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * このアプリはライトモード専用に作ってあるので、OSのダーク設定を拾って
+ * 文字色だけ白系に切り替わって「白背景に白文字」になる事故を防ぐため、
+ * color-scheme を light に固定し、dark media query の上書きは置かない。
+ */
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -12,15 +18,23 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* layout.tsx で Geist を読み込んでいるので、そちらを優先して使う */
+  font-family: var(--font-geist-sans), system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+}
+
+/* ブラウザのUAスタイルが iOS Safari などで input の文字を薄くするのを防ぐ */
+input,
+textarea,
+select {
+  color: #111827; /* gray-900 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af; /* gray-400 */
+  opacity: 1;
 }

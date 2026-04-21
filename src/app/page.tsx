@@ -209,33 +209,51 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">🎤 ライブカレンダー</h1>
-            <p className="text-xs text-gray-400">アーティストのイベント情報を自動収集</p>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-white">
+      <header className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
+              <span aria-hidden>🎤</span>
+              <span className="truncate">ライブカレンダー</span>
+            </h1>
+            <p className="text-xs text-gray-600 mt-0.5 truncate">
+              アーティストのイベント情報を自動収集
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {isAdmin && (
-              <Link href="/admin/sns" className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors">
-                SNS確認
+              <Link
+                href="/admin/sns"
+                title="SNS確認"
+                aria-label="SNS確認"
+                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
+              >
+                📡
               </Link>
             )}
             <button
               onClick={() => setShowForm(true)}
-              className="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+              className="inline-flex items-center gap-1 text-sm font-semibold bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 shadow-sm hover:shadow transition-all"
             >
-              ＋ 情報を追加
+              <span aria-hidden>＋</span>
+              <span className="hidden sm:inline">情報を追加</span>
+              <span className="sm:hidden">追加</span>
             </button>
-            <Link href="/notifications" className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
-              通知設定
+            <Link
+              href="/notifications"
+              title="通知設定"
+              aria-label="通知設定"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
+            >
+              🔔
             </Link>
             {isAdmin ? (
               <button
                 onClick={handleLogout}
                 title="管理者ログアウト"
-                className="text-base text-amber-600 hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+                aria-label="管理者ログアウト"
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors"
               >
                 🔓
               </button>
@@ -243,7 +261,8 @@ export default function Home() {
               <button
                 onClick={() => setShowLoginModal(true)}
                 title="管理者ログイン"
-                className="text-base text-gray-300 hover:text-gray-500 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="管理者ログイン"
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 🔒
               </button>
@@ -254,44 +273,67 @@ export default function Home() {
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">⚠️ {error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm flex items-start gap-2">
+            <span>⚠️</span>
+            <span className="flex-1">{error}</span>
+          </div>
         )}
         {submitSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-4 text-sm">✅ {submitSuccess}</div>
+          <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl p-4 text-sm flex items-start gap-2">
+            <span>✅</span>
+            <span className="flex-1">{submitSuccess}</span>
+          </div>
         )}
 
         {loading && (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-3xl mb-3 animate-pulse">🎵</p>
+          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+            <div className="w-12 h-12 rounded-full border-2 border-indigo-100 border-t-indigo-500 animate-spin mb-4" />
             <p className="text-sm">イベント情報を読み込み中...</p>
           </div>
         )}
 
         {!loading && (
           <>
-            <section>
+            <section className="space-y-2">
+              <div className="flex items-baseline gap-2 px-1">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">絞り込み</h2>
+                {selectedArtistIds.length > 0 && (
+                  <span className="text-xs text-indigo-700 font-semibold">
+                    {selectedArtistIds.length}組選択中
+                  </span>
+                )}
+              </div>
               <ArtistFilter artists={artists} selectedIds={selectedArtistIds} onChange={setSelectedArtistIds} />
             </section>
+
             <section>
               <Calendar events={filteredEvents} onDateSelect={handleDateSelect} selectedDate={selectedDate} />
             </section>
+
             <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-gray-800">
-                  {selectedDate ? `${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日のイベント` : 'すべてのイベント'}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <span className="inline-block w-1 h-5 bg-indigo-500 rounded-full" aria-hidden />
+                  {selectedDate
+                    ? `${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日のイベント`
+                    : 'すべてのイベント'}
                 </h2>
                 {selectedDate && (
-                  <button onClick={() => setSelectedDate(null)} className="text-xs text-gray-400 hover:text-gray-600 underline">
+                  <button
+                    onClick={() => setSelectedDate(null)}
+                    className="text-xs text-gray-600 hover:text-indigo-700 underline underline-offset-2"
+                  >
                     絞り込み解除
                   </button>
                 )}
               </div>
               <EventList events={filteredEvents} artists={artists} selectedDate={selectedDate} isAdmin={isAdmin} onDelete={handleDelete} onUpdate={handleUpdate} />
             </section>
+
             <section className="pt-4 text-center">
               <Link
                 href="/archive"
-                className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-600 underline underline-offset-4 decoration-dotted transition-colors"
+                className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-700 underline underline-offset-4 decoration-dotted transition-colors"
               >
                 📼 過去のライブを見る
               </Link>

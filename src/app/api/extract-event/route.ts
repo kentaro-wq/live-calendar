@@ -1,12 +1,30 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export const maxDuration = 30
+
+// 画像サイズの上限（base64文字列の長さ）。約4MBの画像まで受け付ける。
+const MAX_IMAGE_BASE64_LENGTH = 6_000_000
 
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'APIキー未設定 (ANTHROPIC_API_KEY)' }, { status: 500 })
+  }
+
+  // レート制限チェック（IPごとに 5回/分・30回/時間）
+  const rateLimit = await enforceRateLimit(request, 'extract-event')
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: rateLimit.reason },
+      {
+        status: 429,
+        headers: rateLimit.retryAfterSeconds
+          ? { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+          : undefined,
+      }
+    )
   }
 
   let imageBase64: string
@@ -19,6 +37,13 @@ export async function POST(request: Request) {
 
   if (!imageBase64) {
     return NextResponse.json({ error: '画像データが空です' }, { status: 400 })
+  }
+
+  if (imageBase64.length > MAX_IMAGE_BASE64_LENGTH) {
+    return NextResponse.json(
+      { error: '画像サイズが大きすぎます。4MB以下の画像を使用してください。' },
+      { status: 413 }
+    )
   }
 
   console.log(`画像解析開始: サイズ: ${Math.round(imageBase64.length * 0.75 / 1024)}KB`)

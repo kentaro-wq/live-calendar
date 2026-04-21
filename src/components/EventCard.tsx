@@ -15,21 +15,23 @@ type Props = {
 
 const TICKET_STATUSES: TicketStatus[] = ['チケット確認中', '要予約', '当日券あり', '予約不要', '完売']
 
-// 地図検索で正しい場所にヒットしない会場（地図リンクを無効化）
-const AMBIGUOUS_VENUE_NAMES = [
-  '湯島 道',
-  '湯島の道',
-  'BARISSHEE',
+// 地図検索で正しい場所にヒットしない会場の住所対応表
+// ※ 会場名に keyword が含まれていたら、address で地図検索する（表記ゆれ対応）
+const VENUE_MAP_OVERRIDES: { keyword: string; address: string }[] = [
+  { keyword: '湯島',   address: '東京都文京区湯島3-35-6' },       // MUSIC BAR 道
+  { keyword: 'ISSHEE', address: '東京都文京区千駄木3-36-11' },    // Bar Isshee
 ]
 
 function normalizeVenueName(name: string): string {
   return name.trim().toLowerCase().replace(/[\s\u3000]+/g, '')
 }
 
-const AMBIGUOUS_VENUES = new Set(AMBIGUOUS_VENUE_NAMES.map(normalizeVenueName))
-
-function isAmbiguousVenue(venue: string): boolean {
-  return AMBIGUOUS_VENUES.has(normalizeVenueName(venue))
+function getMapQuery(venue: string): string {
+  const normalized = normalizeVenueName(venue)
+  const override = VENUE_MAP_OVERRIDES.find(
+    o => normalized.includes(normalizeVenueName(o.keyword))
+  )
+  return override?.address ?? venue
 }
 
 function getTicketBadgeStyle(status: TicketStatus | null): string {
@@ -174,20 +176,14 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
               {event.time && (
                 <p className="text-sm text-gray-500">{formatTime(event.time)}</p>
               )}
-              {isAmbiguousVenue(event.venue) ? (
-                <p className="text-base font-medium text-gray-700 mt-1">
-                  {event.venue}
-                </p>
-              ) : (
-                <a
-                  href={`https://maps.apple.com/?q=${encodeURIComponent(event.venue)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-base font-medium text-gray-700 mt-1 underline decoration-dotted underline-offset-2 hover:text-indigo-600"
-                >
-                  {event.venue}
-                </a>
-              )}
+              <a
+                href={`https://maps.apple.com/?q=${encodeURIComponent(getMapQuery(event.venue))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base font-medium text-gray-700 mt-1 underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+              >
+                {event.venue}
+              </a>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {event.artists && (

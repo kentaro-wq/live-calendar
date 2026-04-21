@@ -288,6 +288,14 @@ export default function Home() {
               </div>
               <EventList events={filteredEvents} artists={artists} selectedDate={selectedDate} isAdmin={isAdmin} onDelete={handleDelete} onUpdate={handleUpdate} />
             </section>
+            <section className="pt-4 text-center">
+              <Link
+                href="/archive"
+                className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-600 underline underline-offset-4 decoration-dotted transition-colors"
+              >
+                📼 過去のライブを見る
+              </Link>
+            </section>
           </>
         )}
       </main>

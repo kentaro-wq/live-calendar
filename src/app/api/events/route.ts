@@ -27,11 +27,14 @@ export async function GET(request: Request) {
 
     const supabase = await createClient()
 
+    // 並び順: デフォルトは昇順（直近の予定から）、archive画面などでは ?order=desc
+    const order = searchParams.get('order') === 'desc' ? 'desc' : 'asc'
+
     // artistsと結合してイベントを取得
     let query = supabase
       .from('events')
       .select('*, artists(*)')
-      .order('date', { ascending: true })
+      .order('date', { ascending: order === 'asc' })
 
     // アーティストで絞り込む場合
     if (artistSlug) {
@@ -55,10 +58,20 @@ export async function GET(request: Request) {
         .split('T')[0]
       query = query.gte('date', startDate).lte('date', endDate)
     } else {
-      // 月指定がない場合は from パラメータ（デフォルト：今日）以降のイベントを取得
-      const from = searchParams.get('from') ?? new Date().toLocaleDateString('sv-SE')
+      // 月指定がない場合は from / to で範囲指定
+      // from 未指定: 今日以降。`from=` （空文字列）を明示的に渡すと下限なし（archive用）
+      const rawFrom = searchParams.get('from')
+      const from = rawFrom === null
+        ? new Date().toLocaleDateString('sv-SE')
+        : rawFrom
       if (/^\d{4}-\d{2}-\d{2}$/.test(from)) {
         query = query.gte('date', from)
+      }
+
+      // to: 上限日付（archiveで「昨日以前」を取るのに使用）
+      const to = searchParams.get('to')
+      if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+        query = query.lte('date', to)
       }
     }
 

@@ -128,6 +128,7 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
     time: event.time?.includes('/') ? event.time.split('/')[1] : (event.time ?? ''),
     ticket_status: event.ticket_status ?? 'チケット確認中',
     source_url: event.source_url ?? '',
+    artist_id: event.artist_id,
     co_artist_ids: event.co_artist_ids ?? [],
   })
 
@@ -145,10 +146,18 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
         ? `${editForm.open_time}/${editForm.time}`
         : (editForm.time || editForm.open_time || null)
 
+      // 主アーティストを変更したら、共演欄に残っていたら重複するので除去しておく
+      const cleanedCoArtistIds = editForm.co_artist_ids.filter(id => id !== editForm.artist_id)
+
       const res = await fetch('/api/events', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: event.id, ...editForm, time, co_artist_ids: editForm.co_artist_ids }),
+        body: JSON.stringify({
+          id: event.id,
+          ...editForm,
+          time,
+          co_artist_ids: cleanedCoArtistIds,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -300,9 +309,29 @@ export default function EventCard({ event, artists, isAdmin, onDelete, onUpdate 
                 placeholder="https://..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">主アーティスト（カテゴリ）</label>
+              <select
+                value={editForm.artist_id}
+                onChange={e => setEditForm(p => ({
+                  ...p,
+                  artist_id: e.target.value,
+                  // 主アーティストを共演リストから除外しておく
+                  co_artist_ids: p.co_artist_ids.filter(id => id !== e.target.value),
+                }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+              >
+                {artists.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                このイベントがどのアーティストのカテゴリに入るかを変更できます。
+              </p>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">共演アーティスト（複数選択可）</label>
               <div className="flex flex-wrap gap-2">
-                {artists.filter(a => a.id !== event.artist_id && a.slug !== 'others').map(a => (
+                {artists.filter(a => a.id !== editForm.artist_id && a.slug !== 'others').map(a => (
                   <label key={a.id} className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="checkbox"

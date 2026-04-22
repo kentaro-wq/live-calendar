@@ -165,32 +165,48 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json()
-    const { id, title, venue, date, time, ticket_status, source_url, co_artist_ids } = body
+    const { id, artist_id, title, venue, date, time, ticket_status, source_url, co_artist_ids } = body
 
     if (!id) return NextResponse.json({ error: 'idが必要です' }, { status: 400 })
     if (!title || !venue || !date) {
       return NextResponse.json({ error: 'タイトル・会場・日付は必須です' }, { status: 400 })
     }
 
+    // 変更可能なカラムだけ構築する。artist_id は指定された時のみ上書き。
+    const patch: Record<string, unknown> = {
+      title,
+      venue,
+      date,
+      time: time || null,
+      ticket_status: ticket_status || 'チケット確認中',
+      source_url: source_url || null,
+      co_artist_ids: co_artist_ids || [],
+      manually_edited: true,
+      updated_at: new Date().toISOString(),
+    }
+    if (typeof artist_id === 'string' && artist_id) {
+      patch.artist_id = artist_id
+    }
+
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('events')
-      .update({
-        title,
-        venue,
-        date,
-        time: time || null,
-        ticket_status: ticket_status || 'チケット確認中',
-        source_url: source_url || null,
-        co_artist_ids: co_artist_ids || [],
-        manually_edited: true,
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('id', id)
       .select('*, artists(*)')
       .single()
 
-    if (error) return NextResponse.json({ error: '更新に失敗しました' }, { status: 500 })
+    if (error) {
+      console.error('更新エラー:', error)
+      // artist_id,date,venue のユニーク制約に当たる可能性があるので分かりやすく返す
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: '同じ日付・会場・アーティストの組合せでイベントが既に存在します' },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({ error: '更新に失敗しました' }, { status: 500 })
+    }
     return NextResponse.json({ success: true, event: data })
   } catch (e) {
     console.error('更新エラー:', e)
